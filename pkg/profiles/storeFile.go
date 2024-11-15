@@ -146,7 +146,6 @@ func (f *FileStore) Delete() error {
 
 // getEncryptionKey retrieves the encryption key from the keyring or generates it if absent
 func (f *FileStore) getEncryptionKey() ([]byte, error) {
-
 	// Try retrieving the key as a string from the keyring
 	keyStr, err := keyring.Get(URNNamespaceTemplate, f.key)
 	if err == keyring.ErrNotFound {
