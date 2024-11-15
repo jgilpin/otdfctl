@@ -31,6 +31,11 @@ type FileMetadata struct {
 	EncryptionAlg string `json:"encryption_alg"`
 	Version       string `json:"version"`
 }
+const (
+	aes256KeyLength     = 32
+	ownerPermissionsRW  = 0o600
+	ownerPermissionsRWX = 0o700
+)
 
 // Generates a safe, hashed filename from namespace and key
 func hashNamespaceAndKey(namespace string, key string) string {
@@ -52,8 +57,8 @@ var NewFileStore NewStoreInterface = func(namespace string, key string) StoreInt
 		baseDir = filepath.Join(execDir, "profiles")
 	}
 
-	// Ensure the base directory exists with owner-only access (0700)
-	if err := os.MkdirAll(baseDir, 0700); err != nil {
+	// Ensure the base directory exists with owner-only access including execute
+	if err := os.MkdirAll(baseDir, ownerPermissionsRWX); err != nil {
 		panic(fmt.Sprintf("failed to create profiles directory %s: please check directory permissions", baseDir))
 	}
 
@@ -123,9 +128,9 @@ func (f *FileStore) Set(value interface{}) error {
 		return err
 	}
 
-	// Write the encrypted profile file with 0600 permissions
-	if err := os.WriteFile(f.filePath, encryptedData, 0600); err != nil {
-		return fmt.Errorf("failed to write encrypted profile to %s: %v", f.filePath, err)
+	// Write the encrypted profile file with proper permissions
+	if err := os.WriteFile(f.filePath, encryptedData, ownerPermissionsRW); err != nil {
+		return fmt.Errorf("failed to write encrypted profile to %s: %w", f.filePath, err)
 	}
 
 	// Save metadata as well
@@ -148,9 +153,9 @@ func (f *FileStore) Delete() error {
 func (f *FileStore) getEncryptionKey() ([]byte, error) {
 	// Try retrieving the key as a string from the keyring
 	keyStr, err := keyring.Get(URNNamespaceTemplate, f.key)
-	if err == keyring.ErrNotFound {
+	if errors.Is(err, keyring.ErrNotFound) {
 		// Generate a new key if not found
-		key := make([]byte, 32) // AES-256 key length
+		key := make([]byte, aes256KeyLength)
 		if _, err := rand.Read(key); err != nil {
 			return nil, err
 		}
@@ -190,7 +195,9 @@ func encryptData(key, data []byte) ([]byte, error) {
 	ciphertext := aesGCM.Seal(nil, nonce, data, nil)
 
 	// Prepend the nonce to the ciphertext
-	result := append(nonce, ciphertext...)
+	result := make([]byte, len(nonce)+len(ciphertext))
+	copy(result, nonce)
+	copy(result[len(nonce):], ciphertext)
 	return result, nil
 }
 
@@ -230,7 +237,7 @@ func (f *FileStore) SaveMetadata(profileName string) error {
 	}
 
 	metadataFilePath := strings.TrimSuffix(f.filePath, filepath.Ext(f.filePath)) + ".nfo"
-	return os.WriteFile(metadataFilePath, data, 0600)
+	return os.WriteFile(metadataFilePath, data, ownerPermissionsRW)
 }
 
 // LoadMetadata loads and parses metadata from a .nfo file
