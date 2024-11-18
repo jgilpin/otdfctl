@@ -40,6 +40,7 @@ func (c *Cli) ExitWithNotFoundError(errMsg string, err error) {
 }
 
 func (c *Cli) ExitWithMessage(msg string, code int) {
+	c.printer.enabled = c.printer.enabled || (code != 0) //always output if an error
 	c.Println(msg)
 	os.Exit(code)
 }
