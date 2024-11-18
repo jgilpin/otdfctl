@@ -1,7 +1,7 @@
 # We're going to be using this Makefile as a sort of task runner, for all sorts of operations in this project
 
 # first we'll grab the current version from our ENV VAR (added by our CI) - see here: https://github.com/marketplace/actions/version-increment
-BINARY_NAME := otdfctl
+BINARY_NAME ?= otdfctl
 CURR_VERSION := ${SEM_VER}
 COMMIT_SHA := ${COMMIT_SHA}
 BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -14,6 +14,7 @@ GO_BUILD_FLAGS=-ldflags " \
 	-X $(APP_CFG).Version=${CURR_VERSION} \
 	-X $(APP_CFG).CommitSha=${COMMIT_SHA} \
 	-X $(APP_CFG).BuildTime=${BUILD_TIME} \
+	-X $(APP_CFG).AppName=${BINARY_NAME} \
 "
 GO_BUILD_PREFIX=$(TARGET_DIR)/$(BINARY_NAME)-${CURR_VERSION}
 
